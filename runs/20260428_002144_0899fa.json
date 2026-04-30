@@ -1,0 +1,46 @@
+{
+  "run_id": "20260428_002144_0899fa",
+  "timestamp": "20260428_002144",
+  "n_steps": 20000,
+  "hist_stride": 10,
+  "layer_sizes": [
+    32,
+    16,
+    8,
+    4,
+    2,
+    1
+  ],
+  "n_res": 5,
+  "config": {
+    "layer_sizes": [
+      32,
+      16,
+      8,
+      4,
+      2,
+      1
+    ],
+    "n_res": 5,
+    "n_steps": 20000,
+    "lr": 0.001,
+    "MODE": "reciprocity",
+    "TRANSFORM_MODE": "mass_action",
+    "N_REACTIONS": 10,
+    "ATOMS_ONLY_TRANSFORM": false,
+    "UTILITY_MODE": "self",
+    "MARKET_STRENGTH": 1.0,
+    "BUDGET_MODE": "joint",
+    "RESOURCE_MODE": "zero_sum_no_s",
+    "STRICT_COBB_DOUGLAS": true,
+    "NO_PARENT_UTILITY": false,
+    "NO_PARENT_SKILL": false,
+    "NO_SKILL_SELECTION": false,
+    "NO_UTILITY_SELECTION": false,
+    "FREEZE_SKILLS": false,
+    "FREEZE_UTILITIES": false,
+    "alpha_mem": 0.9,
+    "lambda_rec": 0.1,
+    "seed": 0
+  }
+}

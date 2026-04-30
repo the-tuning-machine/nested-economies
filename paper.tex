@@ -1,0 +1,492 @@
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage[hypertexnames=false]{hyperref}
+\usepackage{float}
+
+\title{Économies imbriquées : ressources, transformations et concentration}
+\author{Alan Seroul, Gary Klajer}
+\date{Avril 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Nous étudions un modèle dynamique d'agents économiques organisés en couches hiérarchiques. Chaque agent possède des ressources, des capacités de transformation et des préférences. Les agents peuvent échanger ressources, capacités et préférences avec leurs voisins directs dans la hiérarchie, vers leurs sous-composants ou vers leurs sur-ensembles. Le but n'est pas de proposer une description réaliste complète d'une économie, mais de construire un laboratoire minimal pour observer comment des règles locales peuvent produire concentration, spécialisation, instabilité, oligarchie ou redistribution. La contribution principale est double : formaliser un cadre hiérarchique simulable à grande échelle, puis montrer expérimentalement que les transformations de ressources ne deviennent interprétables que dans un régime conservatif où elles sont effectivement actives. Dans ce régime, le mode stoichiometric est le candidat le plus prometteur pour réduire la concentration de richesse.
+\end{abstract}
+
+\section{Motivation}
+
+De nombreux systèmes réels sont faits d'unités imbriquées. Un individu appartient à une famille, une entreprise, une ville, une région, un pays. Une cellule contient des organites, s'insère dans un tissu cellulaire, puis dans un organisme. Un atome entre dans des molécules, qui entrent à leur tour dans des structures plus grandes. Dans chacun de ces exemples, les objets pertinents ne vivent pas tous à la même échelle.
+
+Pourtant, les modèles formels se concentrent souvent sur une seule échelle d'interaction. On décrit des individus entre eux, des pays entre eux, des entreprises entre elles, mais il est plus rare de décrire dans un même système les interactions entre niveaux. Cette omission est problématique. Des phénomènes collectifs majeurs naissent précisément du décalage entre les objectifs locaux et les objectifs des structures qui englobent les agents. Un pays peut entrer en guerre alors que la majorité de ses citoyens ne veulent pas mourir. Une organisation peut maximiser sa survie ou sa richesse tout en dégradant la situation de certains de ses membres. Un sous-groupe peut capter les ressources d'un ensemble plus large sans que cette concentration ait été explicitement programmée.
+
+Pour formaliser cette idée, nous partons d'une représentation par ensembles. Un agent peut être vu comme un ensemble, et ses composants comme des sous-ensembles. Une entreprise peut contenir des équipes, qui contiennent des individus. Un organisme peut contenir des tissus, qui contiennent des cellules. Dans cette lecture, la relation fondamentale n'est pas seulement une relation d'interaction, mais une relation d'inclusion : un agent peut être un composant d'un agent plus large.
+
+Il existe alors une traduction naturelle entre systèmes d'ensembles et graphes orientés. Chaque ensemble est représenté par un noeud. Une flèche $A \to B$ signifie que $A$ est inclus dans $B$, ou que $A$ contribue directement à $B$. Si l'on veut éviter les paradoxes d'auto-appartenance et les boucles du type $A \in B \in A$, le graphe correspondant doit être acyclique. Les graphes orientés acycliques, ou DAG, donnent donc la version la plus générale de cette représentation hiérarchique. Dans ce rapport, les ensembles servent surtout à motiver la structure du modèle ; nous n'utilisons pas encore une algèbre complète d'opérations ensemblistes.
+
+L'objectif général est de construire un cadre dynamique pour ces agents hiérarchiques. Nous ne cherchons pas à capturer toute la richesse des systèmes sociaux, biologiques ou physiques avec un unique modèle. Nous voulons plutôt isoler quelques mécanismes suffisamment simples pour être simulés, mais assez expressifs pour faire apparaître des effets macroscopiques.
+
+La question centrale du rapport est économique : sous quelles règles locales une hiérarchie d'agents échangeant des ressources produit-elle de la concentration, de la spécialisation ou de la redistribution ? Existe-t-il des modes de transformation des ressources qui favorisent ou limitent l'oligarchie ? Que change le fait d'autoriser uniquement les agents élémentaires à transformer les ressources, plutôt que toute la hiérarchie ?
+
+\section{Ensembles et graphes hiérarchiques}
+
+La représentation par DAG est la plus générale : elle autorise qu'un même agent appartienne à plusieurs agents plus larges. Par exemple, un individu peut appartenir à une entreprise, à une ville, à une association et à une famille. Formellement, un noeud peut donc avoir plusieurs parents.
+
+On peut ensuite imposer des restrictions plus fortes.
+
+\paragraph{DAG à couches.}
+Un DAG à couches impose une notion de niveau. Les noeuds sont partitionnés en couches $0,1,\ldots,L-1$. Une arête va uniquement d'un niveau vers le niveau immédiatement supérieur. Cela signifie qu'un agent microscopique ne peut pas directement appartenir à un agent macroscopique sans passer par des agents de niveau intermédiaire. Par exemple, un individu ne passe pas directement au niveau d'un pays dans la représentation : il peut passer par une famille, une entreprise, une ville ou une région selon la modélisation.
+
+Dans ce travail, le niveau d'un agent est donc défini comme l'indice de sa couche. La couche $0$ contient les agents les plus élémentaires du modèle. La couche $l+1$ contient des agents plus agrégés que ceux de la couche $l$. Une arête entre la couche $l$ et la couche $l+1$ indique qu'un noeud de niveau $l$ interagit avec un noeud plus agrégé de niveau $l+1$. Les interactions sont locales : un noeud échange uniquement avec la couche immédiatement supérieure et la couche immédiatement inférieure.
+
+Une extension naturelle consisterait à autoriser des arêtes entre couches non adjacentes, tant que le graphe reste acyclique. Cela reviendrait à introduire des skip connections hiérarchiques : un agent pourrait interagir directement avec une structure située deux ou trois niveaux au-dessus de lui, sans passer par tous les niveaux intermédiaires. Nous ne retenons pas cette option afin de garder une notion stricte de voisinage d'échelle, mais elle fournit un degré de liberté important pour des extensions futures.
+
+\paragraph{Arbres.}
+Un arbre est une restriction encore plus forte. Chaque noeud possède au plus un parent. Cela impose une relation d'inclusion unitaire : un agent ne peut appartenir directement qu'à un seul agent plus large. Cette hypothèse peut être raisonnable dans certains cadres administratifs, par exemple si l'on impose qu'un individu n'ait qu'un seul pays de rattachement, ou qu'un employé ne travaille que pour une seule entreprise. Elle est en revanche trop restrictive si l'on veut représenter les appartenances multiples.
+
+Nous utilisons ici des DAG à couches, qui gardent la possibilité de plusieurs parents tout en imposant une proximité d'échelle.
+
+Pour permettre des simulations à grande échelle, nous ne considérons pas ici des transitions qui modifieraient explicitement les relations d'inclusion. Autrement dit, la structure du graphe n'est pas réécrite au cours du temps : un noeud ne crée pas ou ne supprime pas séquentiellement des appartenances discrètes. Ce choix est important, car les opérations de modification de structure sont fortement séquentielles et difficiles à paralléliser.
+
+À la place, nous fixons une structure complète entre couches adjacentes : chaque noeud d'une couche est connecté à tous les noeuds de la couche immédiatement supérieure, et à tous les noeuds de la couche immédiatement inférieure lorsqu'elle existe. L'appartenance n'est donc pas binaire. Nous parlerons d'\textbf{appartenance pondérée}. Un noeud appartient en quelque sorte à toutes les structures d'ordre supérieur accessibles, mais à des degrés variables. Ces degrés sont portés par les proportions d'allocation apprises. Une relation d'inclusion faible correspond à une proportion proche de zéro ; une relation forte correspond à une proportion élevée.
+
+Cette interprétation est opérationnelle : entre deux niveaux adjacents, appartenir à une structure signifie échanger avec elle. Si une cellule effectue la quasi-totalité de ses échanges avec un organisme donné, alors elle appartient à cet organisme dans le modèle. Les cellules d'un organisme échangent principalement avec leur organisme hôte, pas directement avec d'autres organismes. Le modèle remplace donc une appartenance discrète par une intensité d'échange entre niveaux voisins.
+
+Cette approximation reste parallélisable, mais elle n'est pas gratuite. Entre deux couches adjacentes, le coût des flux est de l'ordre de $O(N_l N_{l+1} n)$, où $n$ est le nombre de ressources. Des simulations beaucoup plus grandes demanderont probablement une version sparse de cette appartenance pondérée.
+
+La couche $l$ contient $N_l$ noeuds.
+
+Deux topologies sont utilisées dans les expériences :
+\begin{itemize}
+    \item \textbf{Topologie flat} : $[10,10,10,10,10,10,10,10,10,10]$. Toutes les couches ont la même taille. Le terme flat signifie ici que la largeur ne décroît pas avec la hauteur ; la structure reste bien une hiérarchie en couches.
+    \item \textbf{Topologie hier} : $[32,16,8,4,2,1]$. Le nombre de noeuds décroît avec la hauteur, jusqu'à un sommet unique.
+\end{itemize}
+
+\section{Modèle économique}
+
+La théorie économique fournit une base naturelle pour ce projet, car elle travaille déjà avec des agents, des ressources, des préférences et des décisions d'allocation. Même lorsque les agents ne sont pas des individus, mais des entreprises, des ménages, des institutions ou des États, l'économie propose un langage pour décrire leurs contraintes, leurs objectifs et leurs échanges.
+
+Dans l'économie néoclassique, trois concepts jouent un rôle central : le capital, le travail et l'utilité. Le capital désigne les ressources ou actifs disponibles pour produire, échanger ou consommer. Le travail désigne la capacité d'action ou de production d'un agent. L'utilité décrit la satisfaction propre d'un agent, donc ce qui motive ses choix. Notre modèle s'inspire directement de ces trois notions. Pour chaque noeud, nous représentons le capital par un vecteur de ressources, le travail par une matrice de skills, et l'utilité par un vecteur de préférences.
+
+Les choix qui suivent restent toutefois des choix de modélisation. Ils sont souvent partiellement arbitraires, et leur pertinence dépend fortement de l'échelle considérée. Une règle naturelle pour représenter des entreprises peut être mauvaise pour représenter des cellules ; une règle raisonnable pour des individus peut devenir absurde pour des États. Pour limiter les conclusions qui dépendraient trop d'une convention particulière, nous avons donc implémenté plusieurs versions de mécanismes naturels. L'objectif est de séparer ce qui est propre à une mécanique donnée de ce qui semble structurel dans le système hiérarchique lui-même.
+
+\subsection{État des noeuds}
+
+Chaque noeud $i$ de couche $l$ possède trois objets :
+\begin{align}
+    r_i^{(l)}(t) &\in \mathbb{R}_+^{n}, \\
+    S_i^{(l)}(t) &\in \mathbb{R}_+^{n \times n}, \\
+    u_i^{(l)}(t) &\in \Delta^{n-1}.
+\end{align}
+
+Ici $n$ est le nombre de types de ressources. Le vecteur $r_i^{(l)}$ contient les quantités de ressources détenues par le noeud. La matrice $S_i^{(l)}$ encode ses capacités de transformation. Le vecteur $u_i^{(l)}$ encode ses préférences, avec $\sum_m u_{i,m}^{(l)} = 1$.
+
+L'interprétation économique est directe :
+\begin{itemize}
+    \item les ressources jouent le rôle de capital ou de stocks disponibles ;
+    \item les skills représentent des capacités de conversion, de production ou d'organisation ;
+    \item les préférences décrivent ce qui rend un agent satisfait.
+\end{itemize}
+
+Par exemple, dans une économie très simplifiée, les ressources pourraient être nourriture, énergie et outils. Les skills décriraient alors la capacité d'un agent à transformer de l'énergie et des outils en nourriture, ou à convertir certaines ressources en d'autres. Les préférences diraient si l'agent valorise davantage la nourriture, l'énergie ou les outils. Le même formalisme peut ensuite être lu à une autre échelle : une entreprise, une ville ou un organisme possède aussi des stocks, des capacités de transformation et des objectifs propres.
+
+\subsection{Flux entre noeuds}
+
+À chaque pas, un noeud peut envoyer une fraction de ses ressources, de ses skills et de ses préférences vers ses parents ou vers ses enfants. On note :
+\begin{align}
+    P^{R,\uparrow,l}_{i,j,m}, \quad P^{R,\downarrow,l}_{i,k,m}
+\end{align}
+les proportions de la ressource $m$ envoyées par le noeud $i$ de couche $l$ vers un parent $j$ de couche $l+1$, ou vers un enfant $k$ de couche $l-1$. Les mêmes objets existent pour les skills, notés $P^S$, et pour les préférences, notés $P^U$.
+
+Les proportions sont produites par des logits optimisables. Elles sont contraintes par construction à rester dans $[0,1]$ et à respecter un budget d'allocation.
+
+\subsection{Modes de budget}
+
+Deux modes de budget sont implémentés.
+
+\paragraph{Budget joint.}
+Pour chaque noeud et chaque ressource, un unique softmax répartit le budget entre trois groupes : garder, envoyer vers le haut, envoyer vers le bas. Formellement, si les groupes disponibles sont $G \subseteq \{\mathrm{keep},\uparrow,\downarrow\}$, le budget de groupe est :
+\begin{equation}
+    b_g = \frac{\exp a_g}{\sum_{h \in G} \exp a_h}.
+\end{equation}
+À l'intérieur du groupe $\uparrow$ ou $\downarrow$, un second softmax distribue la masse entre les partenaires disponibles.
+
+\paragraph{Budget split.}
+Lorsque le noeud possède à la fois parents et enfants, le budget vers le haut et le budget vers le bas sont décidés séparément. On applique un softmax keep/up pour les parents et un softmax keep/down pour les enfants. Ce mode autorise donc une pression simultanée plus forte dans les deux directions.
+Il ne doit pas être lu comme un unique budget physique strictement conservé au niveau du noeud, mais comme une règle d'allocation plus permissive entre flux ascendants et descendants.
+
+\subsection{Flux nets}
+
+Les flux de ressources d'un noeud se décomposent en une partie intrinsèque, liée aux enfants, et une partie extrinsèque, liée aux parents :
+\begin{align}
+    r_{\mathrm{int},i}^{(l)} &=
+    \sum_k P^{R,\uparrow,l-1}_{k,i} \odot r_k^{(l-1)}
+    -
+    \sum_k P^{R,\downarrow,l}_{i,k} \odot r_i^{(l)}, \\
+    r_{\mathrm{ext},i}^{(l)} &=
+    \sum_j P^{R,\downarrow,l+1}_{j,i} \odot r_j^{(l+1)}
+    -
+    \sum_j P^{R,\uparrow,l}_{i,j} \odot r_i^{(l)}.
+\end{align}
+
+On pose :
+\begin{equation}
+    r_{\mathrm{net},i}^{(l)} = r_{\mathrm{int},i}^{(l)} + r_{\mathrm{ext},i}^{(l)}.
+\end{equation}
+Les skills et les préférences suivent le même principe. Pour les skills, les proportions agissent sur les lignes de $S$, c'est-à-dire sur les capacités associées à chaque ressource d'entrée.
+
+Ce choix donne aussi une intuition importante sur la collaboration. Combiner deux agents ne revient pas seulement à additionner deux productions séparées. Si deux agents mettent en commun des ressources $r_1,r_2$ et des skills $S_1,S_2$, alors en général
+\begin{equation}
+    (r_1+r_2)(S_1+S_2) \neq r_1S_1+r_2S_2.
+\end{equation}
+La combinaison des capacités peut donc créer des effets non linéaires, positifs ou négatifs. Cette remarque ne modifie pas la règle de simulation, mais elle explique pourquoi il est pertinent de faire circuler les skills en plus des ressources.
+
+\section{Modes du modèle}
+
+\subsection{Modes de ressources}
+
+Trois modes de ressources sont importants.
+
+\paragraph{\texttt{zero\_sum\_no\_s}.}
+Dans ce mode, il n'y a pas de transformation interne des ressources. La matrice $S$ est figée et ignorée dans la dynamique de $r$. La mise à jour est :
+\begin{equation}
+    r_i(t+1) = \operatorname{ReLU}\left(r_i(t) + r_{\mathrm{net},i}(t)\right).
+\end{equation}
+Ce mode correspond à des échanges purs. Il conserve la masse par redistribution, à l'exception des effets de projection positive lorsqu'une composante deviendrait négative. Il a servi de batterie initiale. Il est utile pour étudier les effets de topologie, de budget, de nombre de ressources et de mode d'optimisation.
+
+\paragraph{\texttt{zero\_sum\_stoch\_s}.}
+Dans ce mode, les ressources sont transformées par $S$, puis redistribuées. Après mise à jour, les matrices $S$ sont normalisées ligne par ligne. De plus, la masse totale de ressources est recalée globalement pour conserver la masse totale du système. Ce mode active les transformations tout en évitant la croissance non bornée :
+\begin{equation}
+    r_i(t+1) = \operatorname{ReLU}\left(T(r_i(t),S_i(t)) + r_{\mathrm{net},i}(t)\right).
+\end{equation}
+Il s'agit du régime le plus propre pour comparer les modes de transformation. La conservation y est globale : elle porte sur la masse totale du système après recalage, pas sur la richesse de chaque noeud ni nécessairement sur chaque type de ressource pris séparément.
+
+\paragraph{\texttt{free}.}
+Dans ce mode, les transformations sont actives, mais aucune conservation globale de masse n'est imposée. Les skills peuvent évoluer librement et ne sont pas normalisés comme dans le mode stochastique. Ce mode représente un régime productif ou destructif non conservatif. Il est informatif pour observer croissance, extinction et instabilité, mais il ne doit pas être comparé directement aux modes conservatifs sans métrique adaptée.
+
+\subsection{Modes de transformation}
+
+On note $T(r,S)$ la transformation interne des ressources.
+
+\paragraph{\texttt{markov}.}
+La transformation est linéaire :
+\begin{equation}
+    T_m(r,S) = \sum_n r_n S_{n,m}.
+\end{equation}
+Lorsque $S$ est stochastique ligne par ligne, cette transformation redistribue la masse entre types de ressources.
+
+\paragraph{\texttt{mass\_action}.}
+La transformation est multiplicative en log-espace :
+\begin{equation}
+    \log T_m(r,S) = \sum_n S_{n,m} \log(r_n + \varepsilon).
+\end{equation}
+Donc :
+\begin{equation}
+    T_m(r,S) = \exp\left(\sum_n S_{n,m}\log(r_n+\varepsilon)\right).
+\end{equation}
+Ce mode ressemble à une cinétique multiplicative : plusieurs ressources peuvent contribuer conjointement à la production d'un type de ressource.
+
+\paragraph{\texttt{stoichiometric}.}
+Nous conservons le nom anglais utilisé dans le code. Il désigne ici une dynamique de réactions à coefficients stoechiométriques.
+
+On introduit $K$ réactions. Chaque réaction $k$ possède un vecteur d'inputs $W^{\mathrm{in}}_k$ et un vecteur d'outputs $W^{\mathrm{out}}_k$, tous deux positifs. Pour un agent $i$, la vitesse brute de réaction est $v_{i,k}$. La vitesse effective est limitée par le réactif limitant :
+\begin{equation}
+    v^{\mathrm{max}}_{i,k} = \min_n \frac{r_{i,n}}{W^{\mathrm{in}}_{k,n}+\varepsilon},
+    \qquad
+    v^{\mathrm{actual}}_{i,k} = \min(v_{i,k},v^{\mathrm{max}}_{i,k}).
+\end{equation}
+La variation de ressources est :
+\begin{equation}
+    \Delta r_i = \sum_k v^{\mathrm{actual}}_{i,k}
+    \left(W^{\mathrm{out}}_k - W^{\mathrm{in}}_k\right).
+\end{equation}
+La transformation retourne $T(r_i)=r_i+\Delta r_i$.
+
+\paragraph{\texttt{leontief}.}
+Chaque ressource produite $m$ possède une recette de prérequis $C_{j,m}$. L'échelle de production est :
+\begin{equation}
+    q_{i,m} = \min_j \frac{r_{i,j}}{C_{j,m}+\varepsilon}.
+\end{equation}
+La production effective est modulée par une efficacité $e_{i,m}\in[0,1]$ :
+\begin{equation}
+    T_m(r_i)=q_{i,m} e_{i,m}.
+\end{equation}
+Ce mode impose une complémentarité forte entre ressources. Une ressource manquante peut bloquer toute une production.
+
+\subsection{\texttt{ATOMS\_ONLY\_TRANSFORM}}
+
+Ce paramètre décide où la transformation interne $T$ est appliquée.
+\begin{itemize}
+    \item Si \texttt{ATOMS\_ONLY\_TRANSFORM=True}, seuls les noeuds de la couche $0$ transforment les ressources. Les couches supérieures redistribuent sans transformer.
+    \item Si \texttt{ATOMS\_ONLY\_TRANSFORM=False}, tous les noeuds appliquent leur transformation interne.
+\end{itemize}
+Ce paramètre est sans effet en \texttt{zero\_sum\_no\_s}, puisque la transformation est court-circuitée. Il devient déterminant dans les deux autres modes.
+
+\subsection{Modes d'optimisation}
+
+\paragraph{\texttt{reciprocity}.}
+Chaque agent garde une mémoire exponentielle des ressources utiles reçues de ses partenaires. Si $M_{i,j,m}$ est la mémoire de ce que $i$ a reçu de $j$ pour la ressource $m$, alors :
+\begin{equation}
+    M_{i,j,m}(t+1)=\alpha M_{i,j,m}(t)+(1-\alpha)u_{i,m}(t) \cdot \mathrm{received}_{i,j,m}(t).
+\end{equation}
+L'optimiseur reçoit un bonus lorsqu'un agent envoie vers des partenaires qui lui ont historiquement renvoyé des ressources utiles. Ce mécanisme évite une stratégie strictement opportuniste où chaque agent garderait tout à court terme. L'intuition est que, sans mémoire, un agent peut être incité à ne pas rémunérer ses collaborateurs au pas courant, même si cette stratégie détruit ensuite la structure qui lui permettait de produire. La mémoire force donc le modèle à distinguer un gain immédiat d'une relation durable.
+
+\paragraph{\texttt{market}.}
+Dans ce mode, le routage des ressources est biaisé vers les partenaires dont les ressources ou préférences sont alignées avec l'agent émetteur. Vers le haut, le bonus dépend de $u_i \odot r_j$ : un agent préfère envoyer vers un parent qui possède les ressources qu'il valorise. Vers le bas, le bonus dépend de $r_i \odot u_k$ : un agent préfère envoyer vers un enfant qui valorise ce qu'il possède.
+
+Ces deux modes sont des termes d'objectif différentiables. Ils donnent une interprétation comportementale locale aux flux, mais la simulation reste optimisée de manière synchrone par un optimiseur global. Il ne s'agit donc pas encore d'un jeu décentralisé où chaque agent résout indépendamment son propre problème.
+
+\section{Utilité et optimisation}
+
+L'utilité d'un agent est une fonction Cobb-Douglas :
+\begin{equation}
+    U_i^{(l)} = \prod_m \left(r_{i,m}^{(l)}\right)^{u_{i,m}^{(l)}}.
+\end{equation}
+On optimise en pratique la log-utilité :
+\begin{equation}
+    \log U_i^{(l)} = \sum_m u_{i,m}^{(l)}\log(r_{i,m}^{(l)}+\varepsilon).
+\end{equation}
+
+L'objectif agrégé est la somme des utilités moyennes par couche :
+\begin{equation}
+    \mathcal{L}_{\mathrm{primary}} = -\sum_l \frac{1}{N_l}\sum_i \log U_i^{(l)}.
+\end{equation}
+Le signe négatif vient du fait que l'optimiseur minimise la loss. En mode \texttt{reciprocity}, on ajoute un terme de réciprocité. En mode \texttt{market}, on ajoute un terme d'alignement marché. Les paramètres optimisés sont les logits qui déterminent les proportions d'allocation.
+
+Ce choix d'optimisation est pragmatique. On pourrait chercher une règle d'allocation exacte, mais le problème combine plusieurs ressources, plusieurs agents, des flux ascendants et descendants, des préférences propres à chaque noeud et une dynamique temporelle. Il ne correspond donc pas directement aux problèmes classiques d'allocation statique pour lesquels on dispose de solutions analytiques standard. La descente de gradient fournit une méthode uniforme pour ajuster les proportions d'interaction dans ce cadre différentiable. Elle ne prétend pas être une description complète de la décision individuelle ; elle sert ici de mécanisme de recherche de politiques locales compatibles avec l'objectif agrégé.
+
+\section{Métriques}
+
+Les résultats sont évalués avec les métriques suivantes.
+
+\paragraph{Gini final.}
+Le coefficient de Gini est calculé sur la richesse totale de chaque noeud :
+\begin{equation}
+    W_i=\sum_m r_{i,m}.
+\end{equation}
+Il mesure la concentration de richesse.
+
+\paragraph{Top20 share.}
+Part de la richesse totale détenue par les $20\%$ des noeuds les plus riches.
+
+\paragraph{Oligarchie.}
+Dans ce rapport, nous appelons oligarchie une situation où la richesse est fortement concentrée dans un petit groupe de noeuds. Elle est mesurée principalement par un Gini élevé et par une part top20 élevée. Lorsque les mêmes noeuds restent durablement dans le top, on parle aussi de persistance de l'élite.
+
+\paragraph{Persistance de l'élite.}
+La persistance compare l'ensemble des noeuds appartenant au top $20\%$ au cours du temps. La persistance initiale mesure la survie de l'élite initiale ; la persistance locale mesure la stabilité du top entre deux snapshots consécutifs.
+
+\paragraph{Entropie de portefeuille.}
+Pour chaque noeud, on normalise son portefeuille de ressources :
+\begin{equation}
+    p_{i,m}=\frac{r_{i,m}}{\sum_n r_{i,n}+\varepsilon}.
+\end{equation}
+L'entropie moyenne est :
+\begin{equation}
+    H=-\frac{1}{N}\sum_i\sum_m p_{i,m}\log(p_{i,m}+\varepsilon).
+\end{equation}
+Elle mesure la diversité moyenne des ressources détenues par les agents.
+
+\paragraph{Utilité finale.}
+Moyenne finale des log-utilités.
+
+\paragraph{Stabilité numérique.}
+Dans les runs non conservatifs, on suit aussi la présence de valeurs non finies dans l'historique sauvegardé et la fraction de valeurs finies.
+
+\section{Design expérimental}
+
+La première batterie contient $80$ runs :
+\begin{equation}
+    2 \text{ topologies} \times 8 \text{ variantes} \times 5 \text{ seeds}.
+\end{equation}
+Tous ces runs utilisent \texttt{RESOURCE\_MODE=zero\_sum\_no\_s}. Cette batterie permet d'étudier les effets de topologie, de budget, de mode marché, de nombre de ressources et de réciprocité.
+
+Une seconde batterie contient $32$ runs :
+\begin{equation}
+    2 \text{ resource modes} \times 4 \text{ transformations}
+    \times 2 \text{ valeurs atoms only} \times 2 \text{ topologies}.
+\end{equation}
+Les modes testés sont \texttt{zero\_sum\_stoch\_s} et \texttt{free}. Chaque combinaison est lancée une fois. Dans cette seconde batterie, le mode comportemental est fixé à \texttt{reciprocity}, le budget à \texttt{joint}, et le nombre de ressources à $5$. Cette seconde batterie doit donc être lue comme une exploration diagnostique, pas comme une validation statistique robuste.
+
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{tabular}{lll}
+\toprule
+Facteur & Valeurs & Rôle \\
+\midrule
+RESOURCE\_MODE & zero\_sum\_no\_s, zero\_sum\_stoch\_s, free & conservation et activation de $S$ \\
+TRANSFORM\_MODE & mass action, markov, stoichiometric, leontief & mécanique interne de transformation \\
+ATOMS\_ONLY & True, False & localisation de la transformation \\
+TOPOLOGY & flat, hier & structure multi-échelle \\
+MODE & reciprocity, market & objectif comportemental \\
+BUDGET\_MODE & joint, split & contrainte d'allocation \\
+n\_res & 5, 15 & diversité des ressources \\
+\bottomrule
+\end{tabular}
+\caption{Facteurs expérimentaux manipulés dans les deux batteries.}
+\end{table}
+
+\section{Résultats principaux}
+
+\subsection{La batterie initiale montre un non-effet des transformations}
+
+Dans \texttt{zero\_sum\_no\_s}, les configurations \texttt{markov}, \texttt{stoichiometric}, \texttt{leontief}, \texttt{mass\_action} et \texttt{ATOMS\_ONLY\_TRANSFORM=False} produisent les mêmes métriques que la référence correspondante. Ce résultat n'est pas un phénomène économique, mais une conséquence directe de la définition du mode : la transformation interne est désactivée.
+
+La batterie initiale reste informative sur les autres dimensions :
+\begin{itemize}
+    \item la topologie hiérarchique augmente la concentration moyenne, avec un Gini moyen de $0.848$ contre $0.728$ en topologie flat ;
+    \item augmenter le nombre de ressources à $15$ réduit fortement la concentration en topologie flat, avec un Gini final moyen de $0.430$ ;
+    \item le mode \texttt{market} produit les concentrations les plus fortes, avec un Gini final moyen de $0.906$ en topologie hiérarchique ;
+    \item le mode \texttt{split} augmente l'exclusivité des flux ;
+    \item les élites sont très stables localement, avec une persistance locale proche de $1$ dans les configurations de référence.
+\end{itemize}
+
+\subsection{\texttt{zero\_sum\_stoch\_s} rend les transformations comparables}
+
+Le résultat central vient de la batterie complémentaire. Dans \texttt{zero\_sum\_stoch\_s}, toutes les transformations restent numériquement stables et la masse totale est conservée. Les transformations ne sont alors plus équivalentes.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+Transformation & Gini & Top20 & Utilité & Entropie \\
+\midrule
+mass action & 0.909 & 0.963 & -6.975 & 1.147 \\
+markov & 0.910 & 0.967 & -6.769 & 1.187 \\
+stoichiometric & 0.562 & 0.649 & 0.138 & 0.205 \\
+leontief & 0.852 & 0.887 & -4.909 & 0.077 \\
+\bottomrule
+\end{tabular}
+\caption{Moyennes finales dans \texttt{zero\_sum\_stoch\_s}.}
+\end{table}
+
+Le raisonnement est donc le suivant. D'abord, la batterie initiale montre que \texttt{zero\_sum\_no\_s} ne peut pas tester les transformations. Ensuite, \texttt{zero\_sum\_stoch\_s} active ces transformations tout en conservant une masse comparable. Enfin, dans ce régime propre, \texttt{mass\_action} et \texttt{markov} restent proches : ils produisent une forte concentration et une forte part de richesse détenue par le top $20\%$. \texttt{leontief} conserve également une concentration élevée, avec des portefeuilles très spécialisés. En revanche, \texttt{stoichiometric} réduit fortement la concentration et donne la meilleure utilité finale. Ce résultat ne signifie pas que les portefeuilles deviennent plus diversifiés : son entropie moyenne est faible. Le signal porte donc surtout sur la répartition de la richesse entre agents, pas sur la diversité interne des ressources détenues par chaque agent.
+
+\subsection{Le mode \texttt{free} est un régime de croissance ou d'extinction}
+
+Dans \texttt{free}, les transformations sont actives mais la masse n'est pas conservée. Le comportement obtenu n'est pas directement comparable au régime conservatif. Certaines configurations produisent des masses énormes, de l'ordre de $10^{36}$. D'autres s'éteignent complètement.
+
+Le mode \texttt{free} doit donc être interprété comme un régime séparé. Dans son état actuel, il n'est pas exploitable pour tirer des conclusions quantitatives sur la distribution. Il sert surtout de diagnostic : sans conservation, coût ou contrainte de capacité, la dynamique peut être dominée par la croissance numérique ou par l'extinction. Un régime exploitable devra ajouter une normalisation ou une contrainte de capacité.
+
+\subsection{Effet de \texttt{ATOMS\_ONLY\_TRANSFORM}}
+
+Dans \texttt{zero\_sum\_no\_s}, \texttt{ATOMS\_ONLY\_TRANSFORM} ne change rien. Dans les modes où les transformations sont actives, il devient important. En \texttt{zero\_sum\_stoch\_s}, autoriser toutes les couches à transformer réduit la concentration moyenne :
+\begin{equation}
+    Gini(\mathrm{atoms\ only}) = 0.885,
+    \qquad
+    Gini(\mathrm{all\ nodes}) = 0.731.
+\end{equation}
+Dans \texttt{free}, autoriser toutes les couches à transformer rend souvent la dynamique plus instable, notamment pour \texttt{mass\_action}, \texttt{markov} et \texttt{leontief}.
+
+\section{Discussion et limites}
+
+Le modèle proposé fournit un cadre différentiable pour étudier des agents économiques imbriqués. Son point central est de faire coexister des agents à plusieurs niveaux, avec des flux ascendants et descendants de ressources, de skills et de préférences. L'inclusion discrète est remplacée par une appartenance pondérée, ce qui rend la simulation parallélisable tout en conservant une interprétation hiérarchique.
+
+Les résultats suggèrent que la hiérarchie suffit déjà à produire de la concentration, mais que la mécanique interne de transformation devient déterminante dès qu'elle est réellement activée dans un régime conservatif. Le signal le plus intéressant concerne \texttt{stoichiometric}, qui réduit nettement la concentration dans la batterie complémentaire.
+
+Le modèle montre aussi que les agrégats hiérarchiques ne sont pas seulement des individus plus grands. Une hiérarchie peut concentrer la richesse au sommet, mais aussi créer des goulots d'étranglement intermédiaires. Le mode \texttt{market} indique enfin qu'un alignement local offre-demande peut renforcer les noeuds déjà attractifs au lieu de redistribuer les ressources.
+
+Limites.\\
+La batterie initiale contient $5$ seeds par configuration, mais sur des graphes de petite taille. La batterie complémentaire contient seulement $1$ seed par combinaison. Les résultats sur le mode conservatif stochastique, en particulier l'intérêt de \texttt{stoichiometric}, doivent donc être répliqués.\\
+Le graphe ne change pas au cours du temps : les degrés d'appartenance évoluent via les proportions d'allocation, mais les arêtes possibles restent fixes entre couches adjacentes.\\
+Tous les paramètres sont optimisés par Adam dans une simulation synchrone. Ce n'est pas encore un modèle d'agents asynchrones prenant chacun des décisions indépendantes avec leur propre temporalité.\\
+Le mode \texttt{free} confirme une limite plus générale : sans contrainte de capacité, de coût ou de conservation, les résultats peuvent être dominés par la croissance numérique ou l'extinction. Les conclusions principales reposent donc sur \texttt{zero\_sum\_stoch\_s}, pas sur \texttt{free}.
+
+Les runs peuvent être explorés qualitativement avec le dashboard \texttt{viz.py}, par exemple avec \texttt{python viz.py} ou \texttt{python viz.py runs/<run\_id>.pkl}. Les prochaines expériences devraient surtout répliquer \texttt{zero\_sum\_stoch\_s} avec plusieurs seeds, conserver \texttt{ATOMS\_ONLY\_TRANSFORM} comme facteur, et mettre \texttt{free} de côté tant qu'une contrainte de capacité ou de normalisation n'est pas définie.
+
+La contribution du rapport est donc double : un modèle économique hiérarchique simulable à grande échelle, et une première séparation expérimentale entre effets de structure, effets de conservation et effets de transformation.
+
+\appendix
+
+\section{Valeurs numériques de la batterie initiale}
+
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{tabular}{llrrrr}
+\toprule
+Famille & Topologie & Gini & Top20 & Entropie & Corr U-W \\
+\midrule
+REF & flat & 0.750 & 0.821 & 0.447 & 0.850 \\
+REF & hier & 0.851 & 0.922 & 0.317 & 0.955 \\
+nres15 & flat & 0.430 & 0.519 & 0.709 & 0.331 \\
+nres15 & hier & 0.743 & 0.787 & 0.439 & 0.678 \\
+market & flat & 0.877 & 0.975 & 0.110 & 0.999 \\
+market & hier & 0.906 & 0.997 & 0.081 & 0.999 \\
+split & flat & 0.762 & 0.882 & 0.362 & 0.963 \\
+split & hier & 0.875 & 0.969 & 0.176 & 0.998 \\
+\bottomrule
+\end{tabular}
+\caption{Résumé non redondant de la batterie initiale. Les variantes markov, stoichiometric, leontief et allnodes ne sont pas listées parce qu'elles sont identiques à REF dans \texttt{zero\_sum\_no\_s}. Les valeurs sont des moyennes finales sur 5 seeds.}
+\end{table}
+
+\section{Valeurs numériques des transformations actives}
+
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{tabular}{llrrrr}
+\toprule
+Resource mode & Transformation & Gini & Top20 & Utilité & Entropie \\
+\midrule
+zero\_sum\_stoch\_s & mass action & 0.909 & 0.963 & -6.975 & 1.147 \\
+zero\_sum\_stoch\_s & markov & 0.910 & 0.967 & -6.769 & 1.187 \\
+zero\_sum\_stoch\_s & stoichiometric & 0.562 & 0.649 & 0.138 & 0.205 \\
+zero\_sum\_stoch\_s & leontief & 0.852 & 0.887 & -4.909 & 0.077 \\
+free & mass action & 0.713 & 0.727 & 30.903 & 1.035 \\
+free & markov & 0.842 & 0.904 & 35.527 & 0.948 \\
+free & stoichiometric & 0.824 & 0.846 & 8.381 & 0.772 \\
+free & leontief & 0.322 & 0.332 & 35.990 & 0.523 \\
+\bottomrule
+\end{tabular}
+\caption{Résumé des 32 runs complémentaires, agrégé par mode de ressource et transformation. Chaque moyenne regroupe les deux topologies et les deux valeurs de \texttt{ATOMS\_ONLY\_TRANSFORM}, avec une seule seed par combinaison. Les valeurs \texttt{free} sont diagnostiques, pas des estimations propres d'un régime libre non contraint, à cause des protections numériques, explosions et extinctions.}
+\end{table}
+
+\section{Effet de \texttt{ATOMS\_ONLY\_TRANSFORM}}
+
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{tabular}{llrrrr}
+\toprule
+Resource mode & ATOMS\_ONLY & Gini & Richesse finale & Utilité & Entropie \\
+\midrule
+zero\_sum\_stoch\_s & True & 0.885 & 402.278 & -4.464 & 0.442 \\
+zero\_sum\_stoch\_s & False & 0.731 & 402.278 & -4.794 & 0.866 \\
+free & True & 0.845 & $4.34 \cdot 10^{16}$ & 22.529 & 0.817 \\
+free & False & 0.532 & $2.04 \cdot 10^{36}$ & 32.872 & 0.846 \\
+\bottomrule
+\end{tabular}
+\caption{Effet moyen de \texttt{ATOMS\_ONLY\_TRANSFORM}.}
+\end{table}
+
+\section{Runs \texttt{free} instables ou dégénérés}
+
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{tabular}{lll}
+\toprule
+Nom lisible & Configuration & Symptôme \\
+\midrule
+free-mass-allnodes-flat & mass action, atoms=False, flat & richesse finale $6.79 \cdot 10^{36}$ \\
+free-markov-allnodes-flat & markov, atoms=False, flat & valeurs infinies dans l'historique \\
+free-leontief-atoms-flat & leontief, atoms=True, flat & valeurs infinies dans l'historique \\
+free-leontief-allnodes-flat & leontief, atoms=False, flat & extinction totale \\
+free-mass-allnodes-hier & mass action, atoms=False, hier & richesse finale $4.16 \cdot 10^{36}$ \\
+free-markov-allnodes-hier & markov, atoms=False, hier & richesse finale $3.34 \cdot 10^{36}$ \\
+free-leontief-atoms-hier & leontief, atoms=True, hier & richesse finale $3.04 \cdot 10^{17}$ \\
+free-leontief-allnodes-hier & leontief, atoms=False, hier & extinction totale \\
+\bottomrule
+\end{tabular}
+\caption{Configurations problématiques du mode \texttt{free}.}
+\end{table}
+
+\end{document}
