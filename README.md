@@ -12,6 +12,12 @@ Simulation d'agents économiques hiérarchiques. Chaque noeud possède des resso
 
 ## Installation
 
+Les runs sont versionnés avec Git LFS. Il faut donc installer Git LFS avant de cloner ou de récupérer les données :
+
+```bash
+git lfs install
+```
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -28,7 +34,7 @@ Le script reprend automatiquement les runs déjà terminés grâce à `runs/prog
 
 ## Lancer le dashboard
 
-Interface vide :
+Interface complète :
 
 ```bash
 python viz.py
