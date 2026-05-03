@@ -14,3 +14,4 @@ venv/
 .DS_Store
 
 runs/progress.json
+runs/
